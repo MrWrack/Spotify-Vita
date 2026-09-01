@@ -38,6 +38,7 @@ add_executable(${PROJECT_NAME}
     src/vita_network.c
     src/now_playing.c
     src/spotify_token_store.c
+    src/spotify_token_import.c
     src/spotify_login.c
 )
 
