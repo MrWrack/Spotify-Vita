@@ -216,16 +216,24 @@ static void login_screen(
     text(r, 318, 173, 0.82f, COLOR_DIM,
          "Logga in med ditt Spotify-konto");
 
-    if (app->login_focus) {
-        frame(300, 258, 360, 94, 3, COLOR_GREEN);
-        text(r, 280, 314, 1.00f, COLOR_GREEN, ">");
+    if (app->login_focus == 0) {
+        frame(300, 252, 360, 86, 3, COLOR_GREEN);
+        text(r, 278, 306, 1.00f, COLOR_GREEN, ">");
     }
 
-    rect(310, 268, 340, 74, COLOR_GREEN);
-    text(r, 389, 314, 1.05f, COLOR_BLACK, "LOGGA IN MED SPOTIFY");
+    rect(310, 262, 340, 66, COLOR_GREEN);
+    text(r, 389, 304, 1.05f, COLOR_BLACK, "LOGGA IN MED SPOTIFY");
 
-    text(r, 325, 386, 0.73f, COLOR_DIM, "D-pad: valj   X: logga in   Touch: logga in");
-    text(r, 343, 414, 0.68f, COLOR_DIM, "Inloggning oppnas i Vita-webblasaren");
+    if (app->login_focus == 1) {
+        frame(390, 356, 180, 54, 3, COLOR_GREEN);
+        text(r, 367, 391, 1.00f, COLOR_GREEN, ">");
+    }
+
+    rect(400, 366, 160, 34, COLOR_PANEL_2);
+    text(r, 453, 390, 0.88f, COLOR_WHITE, "BACK");
+
+    text(r, 320, 438, 0.70f, COLOR_DIM,
+         "D-pad upp/ner: valj   X: oppna   O: tillbaka");
 
     rect(325, 222, 310, 2, COLOR_GREEN_2);
 }
@@ -362,7 +370,7 @@ static void error_screen(
     text(r, 337, 235, 0.85f, COLOR_WHITE, buf);
 
     text(r, 302, 295, 0.72f, COLOR_DIM,
-         "Starta om appen eller kontrollera natverket.");
+         "O eller X: tillbaka till login");
 }
 
 int vita2d_renderer_init(Vita2DRenderer *renderer)

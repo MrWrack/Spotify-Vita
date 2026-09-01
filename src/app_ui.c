@@ -32,23 +32,34 @@ UiAction app_ui_action_from_input(
         return UI_ACTION_NONE;
 
     if (app->screen == APP_SCREEN_LOGIN) {
-        if (input->buttons_down &
-            (SCE_CTRL_UP |
-             SCE_CTRL_DOWN |
-             SCE_CTRL_LEFT |
-             SCE_CTRL_RIGHT))
-            return UI_ACTION_FOCUS_LOGIN;
+        if (input->buttons_down & SCE_CTRL_UP)
+            return UI_ACTION_NAV_UP;
 
-        if ((input->buttons_down & SCE_CTRL_CROSS) &&
-            app->login_focus)
-            return UI_ACTION_LOGIN;
+        if (input->buttons_down & SCE_CTRL_DOWN)
+            return UI_ACTION_NAV_DOWN;
 
-        if (input->touch_active &&
-            input->touch_x >= 290 &&
-            input->touch_x <= 670 &&
-            input->touch_y >= 250 &&
-            input->touch_y <= 365)
-            return UI_ACTION_LOGIN;
+        if (input->buttons_down & SCE_CTRL_CIRCLE)
+            return UI_ACTION_BACK;
+
+        if (input->buttons_down & SCE_CTRL_CROSS) {
+            if (app->login_focus == 0)
+                return UI_ACTION_LOGIN;
+            return UI_ACTION_BACK;
+        }
+
+        if (input->touch_active) {
+            if (input->touch_x >= 290 &&
+                input->touch_x <= 670 &&
+                input->touch_y >= 250 &&
+                input->touch_y <= 365)
+                return UI_ACTION_LOGIN;
+
+            if (input->touch_x >= 390 &&
+                input->touch_x <= 570 &&
+                input->touch_y >= 385 &&
+                input->touch_y <= 440)
+                return UI_ACTION_BACK;
+        }
 
         return UI_ACTION_NONE;
     }
@@ -88,6 +99,16 @@ UiAction app_ui_action_from_input(
         if (input->touch_active &&
             input->touch_y >= 458)
             return UI_ACTION_OPEN_NOW_PLAYING;
+
+        return UI_ACTION_NONE;
+    }
+
+    if (app->screen == APP_SCREEN_ERROR) {
+        if (input->buttons_down & SCE_CTRL_CIRCLE)
+            return UI_ACTION_BACK;
+
+        if (input->buttons_down & SCE_CTRL_CROSS)
+            return UI_ACTION_BACK;
 
         return UI_ACTION_NONE;
     }
@@ -135,7 +156,7 @@ int app_ui_execute_action(
             return app_controller_begin_login(app);
 
         case UI_ACTION_FOCUS_LOGIN:
-            app->login_focus = 1;
+            app->login_focus = 0;
             return 0;
 
         case UI_ACTION_OPEN_NOW_PLAYING:
@@ -143,13 +164,23 @@ int app_ui_execute_action(
             return 0;
 
         case UI_ACTION_NAV_UP:
-            app->selected_nav =
-                (app->selected_nav + 3) % 4;
+            if (app->screen == APP_SCREEN_LOGIN) {
+                app->login_focus =
+                    (app->login_focus + 1) % 2;
+            } else {
+                app->selected_nav =
+                    (app->selected_nav + 3) % 4;
+            }
             return 0;
 
         case UI_ACTION_NAV_DOWN:
-            app->selected_nav =
-                (app->selected_nav + 1) % 4;
+            if (app->screen == APP_SCREEN_LOGIN) {
+                app->login_focus =
+                    (app->login_focus + 1) % 2;
+            } else {
+                app->selected_nav =
+                    (app->selected_nav + 1) % 4;
+            }
             return 0;
 
         case UI_ACTION_SELECT_NAV:
@@ -173,7 +204,14 @@ int app_ui_execute_action(
             return 0;
 
         case UI_ACTION_BACK:
-            app->screen = APP_SCREEN_HOME;
+            if (app->screen == APP_SCREEN_ERROR) {
+                app->screen = APP_SCREEN_LOGIN;
+                app->login_focus = 0;
+            } else if (app->screen == APP_SCREEN_LOGIN) {
+                app->login_focus = 0;
+            } else {
+                app->screen = APP_SCREEN_HOME;
+            }
             return 0;
 
         case UI_ACTION_PREVIOUS:
