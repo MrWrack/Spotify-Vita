@@ -1,4 +1,5 @@
 #include "spotify_login.h"
+#include "spotify_config.h"
 
 #include <stdio.h>
 #include <string.h>
