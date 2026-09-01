@@ -16,6 +16,15 @@ typedef enum {
     APP_SCREEN_ERROR
 } AppScreen;
 
+
+typedef enum {
+    APP_ERROR_STAGE_NONE = 0,
+    APP_ERROR_STAGE_LOGIN,
+    APP_ERROR_STAGE_CALLBACK,
+    APP_ERROR_STAGE_BROWSER,
+    APP_ERROR_STAGE_SPOTIFY_HTTP
+} AppErrorStage;
+
 typedef struct {
     SpotifyAuthPkce auth;
     SpotifyLogin login;
@@ -31,6 +40,7 @@ typedef struct {
     int session_saved;
 
     int last_error;
+    AppErrorStage last_error_stage;
     int last_http_status;
 } AppController;
 

@@ -364,12 +364,42 @@ static void error_screen(
 
     text(r, 320, 180, 1.45f, COLOR_RED, "NAGOT GICK FEL");
 
-    char buf[96];
-    snprintf(buf, sizeof(buf), "Error: %d   HTTP: %d",
-             app->last_error, app->last_http_status);
-    text(r, 337, 235, 0.85f, COLOR_WHITE, buf);
+    const char *stage = "UNKNOWN";
 
-    text(r, 302, 295, 0.72f, COLOR_DIM,
+    switch (app->last_error_stage) {
+        case APP_ERROR_STAGE_LOGIN:
+            stage = "LOGIN / PKCE";
+            break;
+        case APP_ERROR_STAGE_CALLBACK:
+            stage = "CALLBACK SERVER";
+            break;
+        case APP_ERROR_STAGE_BROWSER:
+            stage = "VITA BROWSER";
+            break;
+        case APP_ERROR_STAGE_SPOTIFY_HTTP:
+            stage = "SPOTIFY HTTP";
+            break;
+        case APP_ERROR_STAGE_NONE:
+        default:
+            stage = "UNKNOWN";
+            break;
+    }
+
+    char buf[112];
+    snprintf(buf, sizeof(buf), "STEG: %s", stage);
+    text(r, 337, 225, 0.82f, COLOR_GREEN, buf);
+
+    if (app->last_error_stage == APP_ERROR_STAGE_SPOTIFY_HTTP) {
+        snprintf(buf, sizeof(buf), "Error: %d   HTTP: %d",
+                 app->last_error, app->last_http_status);
+    } else {
+        snprintf(buf, sizeof(buf), "Error: %d   (ingen HTTP-request an)",
+                 app->last_error);
+    }
+
+    text(r, 300, 260, 0.76f, COLOR_WHITE, buf);
+
+    text(r, 302, 315, 0.72f, COLOR_DIM,
          "O eller X: tillbaka till login");
 }
 

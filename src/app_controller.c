@@ -101,6 +101,8 @@ int app_controller_begin_login(
 
     if (rc < 0) {
         app->last_error = rc;
+        app->last_http_status = 0;
+        app->last_error_stage = APP_ERROR_STAGE_LOGIN;
         app->screen = APP_SCREEN_ERROR;
         return rc;
     }
@@ -111,6 +113,8 @@ int app_controller_begin_login(
 
     if (rc < 0) {
         app->last_error = rc;
+        app->last_http_status = 0;
+        app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
         app->screen = APP_SCREEN_ERROR;
         return rc;
     }
@@ -134,6 +138,8 @@ int app_controller_begin_login(
 
         if (state == SPOTIFY_CALLBACK_ERROR) {
             app->last_error = app->callback.last_error;
+            app->last_http_status = 0;
+            app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
             app->screen = APP_SCREEN_ERROR;
             return app->last_error;
         }
@@ -143,6 +149,8 @@ int app_controller_begin_login(
 
     if (!listening) {
         app->last_error = -1001;
+        app->last_http_status = 0;
+        app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
         app->screen = APP_SCREEN_ERROR;
         return app->last_error;
     }
@@ -159,10 +167,16 @@ int app_controller_begin_login(
         );
 
         app->last_error = rc;
+        app->last_http_status = 0;
+        app->last_error_stage = APP_ERROR_STAGE_BROWSER;
         app->screen = APP_SCREEN_ERROR;
         return rc;
     }
 
+    app->last_error = 0;
+    app->last_http_status = 0;
+    app->last_error_stage = APP_ERROR_STAGE_NONE;
+    app->last_error_stage = APP_ERROR_STAGE_NONE;
     app->login_started = 1;
     return 0;
 }
@@ -199,6 +213,8 @@ void app_controller_update(
 
     if (callback_state == SPOTIFY_CALLBACK_ERROR) {
         app->last_error = app->callback.last_error;
+        app->last_http_status = 0;
+        app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
         app->screen = APP_SCREEN_ERROR;
     }
 
@@ -223,6 +239,7 @@ void app_controller_update(
             app->last_error = state.error;
             app->last_http_status =
                 state.http_status;
+            app->last_error_stage = APP_ERROR_STAGE_SPOTIFY_HTTP;
         }
     }
 }
@@ -250,6 +267,7 @@ void app_controller_logout(
     app->session_saved = 0;
     app->last_error = 0;
     app->last_http_status = 0;
+    app->last_error_stage = APP_ERROR_STAGE_NONE;
 
     now_playing_init(
         &app->now_playing
