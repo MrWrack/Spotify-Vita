@@ -1,0 +1,7 @@
+build/
+*.elf
+*.self
+*.vpk
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
