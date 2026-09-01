@@ -1,0 +1,64 @@
+name: VitaSDK Build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-vpk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build with official VitaSDK image
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          docker pull vitasdk/vitasdk:2026.08
+
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            vitasdk/vitasdk:2026.08 \
+            sh -lc '
+              set -eux
+
+              echo "VITASDK=$VITASDK"
+              arm-vita-eabi-gcc --version
+              cmake --version
+
+              # Full VitaSDK images normally contain target packages already.
+              # Install/refresh only the libraries this project depends on.
+              if command -v vdpm >/dev/null 2>&1; then
+                vdpm install libvita2d freetype libpng libjpeg-turbo zlib
+              fi
+
+              rm -rf build
+
+              cmake -S . -B build \
+                -DCMAKE_TOOLCHAIN_FILE="$VITASDK/share/vita.toolchain.cmake" \
+                -DCMAKE_BUILD_TYPE=Release
+
+              cmake --build build --parallel 2
+
+              test -f build/spotify-vita.vpk
+              test -f build/eboot.bin
+            '
+
+      - name: Upload VPK
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotify-vita-vpk
+          path: |
+            build/spotify-vita.vpk
+            build/eboot.bin
+            build/spotify-vita
+          if-no-files-found: error
