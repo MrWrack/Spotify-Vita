@@ -36,7 +36,6 @@ add_executable(${PROJECT_NAME}
     src/spotify_state_worker.c
     src/vita_browser.c
     src/vita_network.c
-    src/spotify_callback_server.c
     src/now_playing.c
     src/spotify_token_store.c
     src/spotify_login.c
