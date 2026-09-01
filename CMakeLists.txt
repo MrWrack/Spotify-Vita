@@ -33,6 +33,7 @@ add_executable(${PROJECT_NAME}
     src/spotify_http.c
     src/spotify_json.c
     src/spotify_playback.c
+    src/spotify_search.c
     src/spotify_state_worker.c
     src/vita_browser.c
     src/vita_network.c
