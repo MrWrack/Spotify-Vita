@@ -2,6 +2,9 @@
 
 #include <psp2/appmgr.h>
 
+#include <stdio.h>
+#include <string.h>
+
 int vita_browser_open_url(
     const char *url
 )
@@ -10,18 +13,28 @@ int vita_browser_open_url(
         return -1;
 
     /*
-     * VitaSDK documents sceAppMgrLaunchAppByUri() as the user-mode API for
-     * launching an application by URI. The documented flag value is 0x20000.
+     * On Vita, HTTPS links from homebrew are reliably handed to the
+     * system browser through the "webmodal:" URI handler.
      *
-     * Passing an HTTPS URL should hand the URI to the system handler/browser.
+     * Example used by Vita homebrew:
+     *   sceAppMgrLaunchAppByUri(0x20000, "webmodal: https://...");
      *
-     * Hardware note:
-     * The exact suspend/resume behavior of the calling homebrew still needs
-     * verification on a real Vita. The OAuth callback listener is started
-     * before this call to minimize races.
+     * Keep the auth URL unchanged after the prefix.
      */
+    char uri[4096];
+
+    int n = snprintf(
+        uri,
+        sizeof(uri),
+        "webmodal: %s",
+        url
+    );
+
+    if (n < 0 || n >= (int)sizeof(uri))
+        return -2;
+
     return sceAppMgrLaunchAppByUri(
         0x20000,
-        url
+        uri
     );
 }

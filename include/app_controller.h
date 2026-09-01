@@ -24,6 +24,7 @@ typedef struct {
 
     AppScreen screen;
     int selected_nav;
+    int login_focus;
 
     int initialized;
     int login_started;

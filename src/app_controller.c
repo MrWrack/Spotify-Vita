@@ -70,6 +70,7 @@ int app_controller_init(
         : APP_SCREEN_LOGIN;
 
     app->selected_nav = 0;
+    app->login_focus = 1;
 
     app->initialized = 1;
 

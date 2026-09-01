@@ -216,10 +216,15 @@ static void login_screen(
     text(r, 318, 173, 0.82f, COLOR_DIM,
          "Logga in med ditt Spotify-konto");
 
+    if (app->login_focus) {
+        frame(300, 258, 360, 94, 3, COLOR_GREEN);
+        text(r, 280, 314, 1.00f, COLOR_GREEN, ">");
+    }
+
     rect(310, 268, 340, 74, COLOR_GREEN);
     text(r, 389, 314, 1.05f, COLOR_BLACK, "LOGGA IN MED SPOTIFY");
 
-    text(r, 361, 386, 0.73f, COLOR_DIM, "Tryck X eller tryck pa knappen");
+    text(r, 325, 386, 0.73f, COLOR_DIM, "D-pad: valj   X: logga in   Touch: logga in");
     text(r, 343, 414, 0.68f, COLOR_DIM, "Inloggning oppnas i Vita-webblasaren");
 
     rect(325, 222, 310, 2, COLOR_GREEN_2);

@@ -32,14 +32,22 @@ UiAction app_ui_action_from_input(
         return UI_ACTION_NONE;
 
     if (app->screen == APP_SCREEN_LOGIN) {
-        if (input->buttons_down & SCE_CTRL_CROSS)
+        if (input->buttons_down &
+            (SCE_CTRL_UP |
+             SCE_CTRL_DOWN |
+             SCE_CTRL_LEFT |
+             SCE_CTRL_RIGHT))
+            return UI_ACTION_FOCUS_LOGIN;
+
+        if ((input->buttons_down & SCE_CTRL_CROSS) &&
+            app->login_focus)
             return UI_ACTION_LOGIN;
 
         if (input->touch_active &&
-            input->touch_x >= 310 &&
-            input->touch_x <= 650 &&
-            input->touch_y >= 280 &&
-            input->touch_y <= 350)
+            input->touch_x >= 290 &&
+            input->touch_x <= 670 &&
+            input->touch_y >= 250 &&
+            input->touch_y <= 365)
             return UI_ACTION_LOGIN;
 
         return UI_ACTION_NONE;
@@ -125,6 +133,10 @@ int app_ui_execute_action(
     switch (action) {
         case UI_ACTION_LOGIN:
             return app_controller_begin_login(app);
+
+        case UI_ACTION_FOCUS_LOGIN:
+            app->login_focus = 1;
+            return 0;
 
         case UI_ACTION_OPEN_NOW_PLAYING:
             app->screen = APP_SCREEN_NOW_PLAYING;
