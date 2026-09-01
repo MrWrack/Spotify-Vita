@@ -217,29 +217,14 @@ static void login_screen(
     header(r, app, "LOGIN");
 
     text(r, 365, 135, 1.45f, COLOR_WHITE, "VALKOMMEN");
-    text(r, 318, 173, 0.82f, COLOR_DIM,
-         "Logga in med ditt Spotify-konto");
-
-    if (app->login_focus == 0) {
-        frame(300, 252, 360, 86, 3, COLOR_GREEN);
-        text(r, 278, 306, 1.00f, COLOR_GREEN, ">");
+    if (1) {
+        frame(300, 220, 360, 86, 3, COLOR_GREEN);
+        text(r, 278, 274, 1.00f, COLOR_GREEN, ">");
     }
 
-    rect(310, 262, 340, 66, COLOR_GREEN);
-    text(r, 389, 304, 1.05f, COLOR_BLACK, "LOGGA IN MED SPOTIFY");
-
-    if (app->login_focus == 1) {
-        frame(390, 356, 180, 54, 3, COLOR_GREEN);
-        text(r, 367, 391, 1.00f, COLOR_GREEN, ">");
-    }
-
-    rect(400, 366, 160, 34, COLOR_PANEL_2);
-    text(r, 453, 390, 0.88f, COLOR_WHITE, "BACK");
-
-    text(r, 320, 438, 0.70f, COLOR_DIM,
-         "D-pad upp/ner: valj   X: oppna   O: tillbaka");
-
-    rect(325, 222, 310, 2, COLOR_GREEN_2);
+    rect(310, 230, 340, 66, COLOR_GREEN);
+    text(r, 389, 272, 1.05f, COLOR_BLACK, "LOGGA IN MED SPOTIFY");
+    text(r, 900, 525, 0.55f, COLOR_DIM, "v22");
 }
 
 static void home_screen(
@@ -304,10 +289,6 @@ static void content_screen(
     rect(54, 198, 852, 178, COLOR_PANEL);
     text(r, 82, 245, 0.90f, COLOR_WHITE, line1);
     text(r, 82, 282, 0.76f, COLOR_DIM, line2);
-
-    text(r, 54, 423, 0.70f, COLOR_DIM,
-         "O: tillbaka     Tryck pa miniplayern for Now Playing");
-
     compact_player(r, app);
 }
 
@@ -324,7 +305,6 @@ static void now_playing_screen(
         text(r, 438, 190, 1.10f, COLOR_WHITE, "Ingen aktiv lat");
         text(r, 438, 225, 0.76f, COLOR_DIM,
              "Starta uppspelning i Spotify.");
-        text(r, 438, 405, 0.70f, COLOR_DIM, "O: tillbaka");
         return;
     }
 
@@ -354,9 +334,6 @@ static void now_playing_screen(
     text(r, 644, 374, 1.20f, COLOR_BLACK,
          app->now_playing.track.is_playing ? "II" : ">");
     text(r, 781, 374, 1.15f, COLOR_WHITE, ">>");
-
-    text(r, 430, 447, 0.70f, COLOR_DIM,
-         "LEFT/RIGHT: track   X: play/pause   O: tillbaka");
 }
 
 static void error_screen(
@@ -374,8 +351,8 @@ static void error_screen(
         case APP_ERROR_STAGE_LOGIN:
             stage = "LOGIN / PKCE";
             break;
-        case APP_ERROR_STAGE_CALLBACK:
-            stage = "CALLBACK SERVER";
+        case APP_ERROR_STAGE_APP_URI_CALLBACK:
+            stage = "APP URI CALLBACK";
             break;
         case APP_ERROR_STAGE_BROWSER:
             stage = "VITA BROWSER";
@@ -396,25 +373,9 @@ static void error_screen(
     snprintf(buf, sizeof(buf), "STEG: %s", stage);
     text(r, 337, 225, 0.82f, COLOR_GREEN, buf);
 
-    if (app->last_error_stage == APP_ERROR_STAGE_CALLBACK) {
-        const char *op = "UNKNOWN";
-
-        switch (app->callback.last_operation) {
-            case SPOTIFY_CALLBACK_OP_THREAD_CREATE: op = "THREAD CREATE"; break;
-            case SPOTIFY_CALLBACK_OP_THREAD_START:  op = "THREAD START";  break;
-            case SPOTIFY_CALLBACK_OP_SOCKET:        op = "SOCKET";        break;
-            case SPOTIFY_CALLBACK_OP_SETSOCKOPT:    op = "SETSOCKOPT";    break;
-            case SPOTIFY_CALLBACK_OP_BIND:          op = "BIND";          break;
-            case SPOTIFY_CALLBACK_OP_LISTEN:        op = "LISTEN";        break;
-            case SPOTIFY_CALLBACK_OP_ACCEPT:        op = "ACCEPT";        break;
-            case SPOTIFY_CALLBACK_OP_RECV:          op = "RECV";          break;
-            case SPOTIFY_CALLBACK_OP_PARSE:         op = "PARSE";         break;
-            case SPOTIFY_CALLBACK_OP_NONE:
-            default:                                op = "UNKNOWN";       break;
-        }
-
-        snprintf(buf, sizeof(buf), "DEL: %s   Error: %d",
-                 op, app->last_error);
+    if (app->last_error_stage == APP_ERROR_STAGE_APP_URI_CALLBACK) {
+        snprintf(buf, sizeof(buf), "APP URI callback Error: %d",
+                 app->last_error);
     } else if (app->last_error_stage == APP_ERROR_STAGE_NETWORK) {
         snprintf(buf, sizeof(buf), "NetCtl state: %d   Anslut Wi-Fi",
                  app->network_state);
@@ -422,14 +383,15 @@ static void error_screen(
         snprintf(buf, sizeof(buf), "Error: %d   HTTP: %d",
                  app->last_error, app->last_http_status);
     } else {
-        snprintf(buf, sizeof(buf), "Error: %d   (ingen HTTP-request an)",
-                 app->last_error);
+        if (app->last_error == -3001) {
+            snprintf(buf, sizeof(buf), "Spotify Client ID saknas i spotify_config.h");
+        } else {
+            snprintf(buf, sizeof(buf), "Error: %d   (ingen HTTP-request an)",
+                     app->last_error);
+        }
     }
 
     text(r, 260, 260, 0.72f, COLOR_WHITE, buf);
-
-    text(r, 302, 315, 0.72f, COLOR_DIM,
-         "O eller X: BACK -> LOGIN");
 }
 
 int vita2d_renderer_init(Vita2DRenderer *renderer)

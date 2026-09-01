@@ -3,7 +3,6 @@
 
 #include "now_playing.h"
 #include "spotify_auth_pkce.h"
-#include "spotify_callback_server.h"
 #include "spotify_login.h"
 
 typedef enum {
@@ -20,7 +19,7 @@ typedef enum {
 typedef enum {
     APP_ERROR_STAGE_NONE = 0,
     APP_ERROR_STAGE_LOGIN,
-    APP_ERROR_STAGE_CALLBACK,
+    APP_ERROR_STAGE_APP_URI_CALLBACK,
     APP_ERROR_STAGE_BROWSER,
     APP_ERROR_STAGE_NETWORK,
     APP_ERROR_STAGE_SPOTIFY_HTTP
@@ -29,7 +28,6 @@ typedef enum {
 typedef struct {
     SpotifyAuthPkce auth;
     SpotifyLogin login;
-    SpotifyCallbackServer callback;
     NowPlayingModel now_playing;
 
     AppScreen screen;

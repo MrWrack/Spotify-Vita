@@ -36,7 +36,7 @@ int spotify_login_begin(
 /*
  * Feed the exact callback URL obtained by the Vita callback transport.
  * Example:
- * http://127.0.0.1:43891/callback?code=...&state=...
+ * psgm:play?titleid=SPVT00001&code=...&state=...
  */
 int spotify_login_accept_callback_url(
     SpotifyLogin *login,

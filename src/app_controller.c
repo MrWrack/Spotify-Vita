@@ -8,8 +8,272 @@
 #include "vita_network.h"
 
 #include <psp2/kernel/threadmgr.h>
+#include <psp2/appmgr.h>
 
 #include <string.h>
+#include <stdio.h>
+
+
+static int hex_value(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static void url_decode_in_place(char *text)
+{
+    if (!text)
+        return;
+
+    char *src = text;
+    char *dst = text;
+
+    while (*src) {
+        if (src[0] == '%' && src[1] && src[2]) {
+            int hi = hex_value(src[1]);
+            int lo = hex_value(src[2]);
+
+            if (hi >= 0 && lo >= 0) {
+                *dst++ = (char)((hi << 4) | lo);
+                src += 3;
+                continue;
+            }
+        }
+
+        /*
+         * For an encoded query parameter '+' commonly represents a space.
+         * A Spotify authorization code/state does not need literal spaces.
+         */
+        if (*src == '+')
+            *dst++ = ' ';
+        else
+            *dst++ = *src;
+
+        ++src;
+    }
+
+    *dst = '\0';
+}
+
+/*
+ * Read a URI that launched/resumed this Vita application.
+ *
+ * VitaSDK documents app params such as:
+ *   type=LAUNCH_APP_BY_URI&uri=psgm:play?titleid=...
+ *
+ * Return:
+ *   1 = Spotify callback URI found
+ *   0 = no callback present
+ *  <0 = AppMgr error
+ */
+static int copy_param_value(
+    const char *text,
+    const char *name,
+    char *out,
+    size_t out_size
+)
+{
+    if (!text || !name || !out || out_size == 0)
+        return -1;
+
+    size_t name_len = strlen(name);
+    const char *p = text;
+
+    while ((p = strstr(p, name)) != NULL) {
+        /*
+         * Parameter must begin at start or after ?, &, or whitespace.
+         */
+        if (p != text &&
+            p[-1] != '?' &&
+            p[-1] != '&' &&
+            p[-1] != ' ' &&
+            p[-1] != '\n' &&
+            p[-1] != '\r') {
+            p += name_len;
+            continue;
+        }
+
+        const char *value = p + name_len;
+        const char *end = value;
+
+        while (*end &&
+               *end != '&' &&
+               *end != '\n' &&
+               *end != '\r')
+            ++end;
+
+        size_t len = (size_t)(end - value);
+        if (len == 0 || len >= out_size)
+            return -2;
+
+        memcpy(out, value, len);
+        out[len] = '\0';
+        return 0;
+    }
+
+    return 1;
+}
+
+static int app_controller_read_spotify_callback_uri(
+    char *callback_uri,
+    size_t callback_uri_size
+)
+{
+    if (!callback_uri || callback_uri_size == 0)
+        return -1;
+
+    char param[1024];
+    memset(param, 0, sizeof(param));
+
+    int rc = sceAppMgrGetAppParam(param);
+    if (rc < 0)
+        return rc;
+
+    /*
+     * Vita can expose LAUNCH_APP_BY_URI in slightly different layouts:
+     *
+     *   type=LAUNCH_APP_BY_URI&uri=psgm:play?titleid=SPVT00001&code=...&state=...
+     *
+     * or the uri field itself can be percent encoded.
+     *
+     * Instead of assuming everything after "uri=" belongs to the URI, first
+     * extract URI/code/state separately. This also avoids corrupting encoded
+     * OAuth values by URL-decoding the complete AppMgr parameter string.
+     */
+    char uri[768];
+    char code[256];
+    char state[192];
+    char error[192];
+
+    memset(uri, 0, sizeof(uri));
+    memset(code, 0, sizeof(code));
+    memset(state, 0, sizeof(state));
+    memset(error, 0, sizeof(error));
+
+    rc = copy_param_value(param, "uri=", uri, sizeof(uri));
+    if (rc != 0)
+        return 0;
+
+    url_decode_in_place(uri);
+
+    if (strncmp(
+            uri,
+            "psgm:play?titleid=SPVT00001",
+            strlen("psgm:play?titleid=SPVT00001")) != 0)
+        return 0;
+
+    /*
+     * First try callback values already embedded in the URI.
+     * spotify_auth_pkce_parse_callback() will decode them later.
+     */
+    const char *embedded_code = strstr(uri, "&code=");
+    const char *embedded_error = strstr(uri, "&error=");
+
+    if (embedded_code || embedded_error) {
+        size_t len = strlen(uri);
+        if (len >= callback_uri_size)
+            return -2;
+
+        memcpy(callback_uri, uri, len + 1);
+        return 1;
+    }
+
+    /*
+     * Some AppMgr launch strings expose appended query fields as top-level
+     * app parameters after the uri field. Reconstruct a canonical callback
+     * URL for the existing PKCE parser.
+     */
+    int have_code =
+        copy_param_value(param, "code=", code, sizeof(code)) == 0;
+    int have_state =
+        copy_param_value(param, "state=", state, sizeof(state)) == 0;
+    int have_error =
+        copy_param_value(param, "error=", error, sizeof(error)) == 0;
+
+    if (!have_state || (!have_code && !have_error))
+        return 0;
+
+    int n;
+
+    if (have_code) {
+        n = snprintf(
+            callback_uri,
+            callback_uri_size,
+            "psgm:play?titleid=SPVT00001&code=%s&state=%s",
+            code,
+            state
+        );
+    } else {
+        n = snprintf(
+            callback_uri,
+            callback_uri_size,
+            "psgm:play?titleid=SPVT00001&error=%s&state=%s",
+            error,
+            state
+        );
+    }
+
+    if (n < 0 || (size_t)n >= callback_uri_size)
+        return -3;
+
+    return 1;
+}
+
+static int app_controller_process_app_uri_callback(
+    AppController *app
+)
+{
+    if (!app)
+        return -1;
+
+    char callback_uri[1024];
+    int found = app_controller_read_spotify_callback_uri(
+        callback_uri,
+        sizeof(callback_uri)
+    );
+
+    if (found <= 0)
+        return found;
+
+    int rc = spotify_login_accept_callback_url(
+        &app->login,
+        callback_uri
+    );
+
+    /*
+     * Do not keep OAuth material in this stack buffer longer than needed.
+     */
+    memset(callback_uri, 0, sizeof(callback_uri));
+
+    if (rc < 0) {
+        app->last_error = rc;
+        app->last_http_status = 0;
+        app->last_error_stage = APP_ERROR_STAGE_APP_URI_CALLBACK;
+        app->screen = APP_SCREEN_ERROR;
+        app->login_started = 0;
+        return rc;
+    }
+
+    if (app->auth.authenticated) {
+        spotify_token_store_save(
+            SPOTIFY_TOKEN_STORE_PATH,
+            &app->auth
+        );
+
+        app->session_saved = 1;
+        app->login_started = 0;
+        app->last_error = 0;
+        app->last_http_status = 0;
+        app->last_error_stage = APP_ERROR_STAGE_NONE;
+        app->screen = APP_SCREEN_HOME;
+
+        spotify_state_worker_wake();
+    }
+
+    return 1;
+}
 
 int app_controller_init(
     AppController *app
@@ -38,15 +302,6 @@ int app_controller_init(
         &app->login,
         &app->auth
     );
-
-    rc = spotify_callback_server_init(
-        &app->callback,
-        &app->login,
-        SPOTIFY_CALLBACK_PORT
-    );
-
-    if (rc < 0)
-        return rc;
 
     now_playing_init(
         &app->now_playing
@@ -113,16 +368,14 @@ int app_controller_begin_login(
         return app->last_error;
     }
 
-    /*
-     * Clear stale callback state from a previous failed attempt.
-     */
-    spotify_callback_server_stop(&app->callback);
-    app->callback.state = SPOTIFY_CALLBACK_STOPPED;
-    app->callback.last_error = 0;
     app->last_error = 0;
     app->last_http_status = 0;
     app->last_error_stage = APP_ERROR_STAGE_NONE;
 
+    /*
+     * PKCE creates verifier/challenge/state and the Spotify authorize URL.
+     * v19 does NOT open a local listening socket.
+     */
     int rc = spotify_login_begin(
         &app->login,
         SPOTIFY_SCOPES
@@ -136,53 +389,11 @@ int app_controller_begin_login(
         return rc;
     }
 
-    rc = spotify_callback_server_start(
-        &app->callback
-    );
-
-    if (rc < 0) {
-        app->last_error = rc;
-        app->last_http_status = 0;
-        app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
-        app->screen = APP_SCREEN_ERROR;
-        return rc;
-    }
-
     /*
-     * Wait briefly until the callback listener has bound its socket before
-     * opening the authorization URL.
+     * Mark login active before the browser opens because the Vita can
+     * suspend this app while the system browser is in front.
      */
-    int listening = 0;
-
-    for (int i = 0; i < 200; ++i) {
-        SpotifyCallbackServerState state =
-            spotify_callback_server_state(
-                &app->callback
-            );
-
-        if (state == SPOTIFY_CALLBACK_LISTENING) {
-            listening = 1;
-            break;
-        }
-
-        if (state == SPOTIFY_CALLBACK_ERROR) {
-            app->last_error = app->callback.last_error;
-            app->last_http_status = 0;
-            app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
-            app->screen = APP_SCREEN_ERROR;
-            return app->last_error;
-        }
-
-        sceKernelDelayThread(5 * 1000);
-    }
-
-    if (!listening) {
-        app->last_error = -1001;
-        app->last_http_status = 0;
-        app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
-        app->screen = APP_SCREEN_ERROR;
-        return app->last_error;
-    }
+    app->login_started = 1;
 
     rc = vita_browser_open_url(
         spotify_login_authorization_url(
@@ -191,10 +402,7 @@ int app_controller_begin_login(
     );
 
     if (rc < 0) {
-        spotify_callback_server_stop(
-            &app->callback
-        );
-
+        app->login_started = 0;
         app->last_error = rc;
         app->last_http_status = 0;
         app->last_error_stage = APP_ERROR_STAGE_BROWSER;
@@ -202,11 +410,6 @@ int app_controller_begin_login(
         return rc;
     }
 
-    app->last_error = 0;
-    app->last_http_status = 0;
-    app->last_error_stage = APP_ERROR_STAGE_NONE;
-    app->last_error_stage = APP_ERROR_STAGE_NONE;
-    app->login_started = 1;
     return 0;
 }
 
@@ -222,35 +425,16 @@ void app_controller_update(
         vita_network_is_connected();
     vita_network_get_state(&app->network_state);
 
-    SpotifyCallbackServerState callback_state =
-        spotify_callback_server_state(
-            &app->callback
-        );
 
-    if (callback_state == SPOTIFY_CALLBACK_RECEIVED &&
-        app->auth.authenticated) {
-
-        if (!app->session_saved) {
-            spotify_token_store_save(
-                SPOTIFY_TOKEN_STORE_PATH,
-                &app->auth
-            );
-
-            app->session_saved = 1;
-        }
-
-        app->login_started = 0;
-        app->screen = APP_SCREEN_HOME;
-
-        spotify_state_worker_wake();
-    }
-
-    if (app->login_started &&
-        callback_state == SPOTIFY_CALLBACK_ERROR) {
-        app->last_error = app->callback.last_error;
-        app->last_http_status = 0;
-        app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
-        app->screen = APP_SCREEN_ERROR;
+    /*
+     * When Spotify redirects to:
+     *   psgm:play?titleid=SPVT00001&code=...&state=...
+     * the Vita resumes/launches this title. AppMgr exposes that URI here.
+     */
+    if (app->login_started ||
+        app->login.state == SPOTIFY_LOGIN_NEEDS_BROWSER ||
+        app->login.state == SPOTIFY_LOGIN_WAITING_CALLBACK) {
+        app_controller_process_app_uri_callback(app);
     }
 
     SpotifyStateResult state;
@@ -287,15 +471,6 @@ void app_controller_return_to_login(
     if (!app)
         return;
 
-    /*
-     * Stop/reset the failed callback worker BEFORE changing screen.
-     * Otherwise app_controller_update() sees CALLBACK_ERROR on the next
-     * frame and immediately sends the UI back to APP_SCREEN_ERROR.
-     */
-    spotify_callback_server_stop(&app->callback);
-    app->callback.state = SPOTIFY_CALLBACK_STOPPED;
-    app->callback.last_error = 0;
-
     app->login_started = 0;
     app->last_error = 0;
     app->last_http_status = 0;
@@ -310,11 +485,6 @@ void app_controller_logout(
 {
     if (!app)
         return;
-
-    spotify_callback_server_stop(
-        &app->callback
-    );
-
     spotify_auth_pkce_clear(
         &app->auth
     );
@@ -349,11 +519,6 @@ void app_controller_shutdown(
         return;
 
     spotify_state_worker_shutdown();
-
-    spotify_callback_server_shutdown(
-        &app->callback
-    );
-
     if (app->auth.authenticated) {
         spotify_token_store_save(
             SPOTIFY_TOKEN_STORE_PATH,

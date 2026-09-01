@@ -25,6 +25,11 @@ int spotify_login_begin(
     const char *scopes
 )
 {
+    if (!SPOTIFY_CLIENT_ID[0] ||
+        strcmp(SPOTIFY_CLIENT_ID, "PUT_YOUR_SPOTIFY_CLIENT_ID_HERE") == 0)
+        return -3001;
+
+
     if (!login || !login->auth || !scopes)
         return -1;
 

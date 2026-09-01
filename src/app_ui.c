@@ -32,34 +32,33 @@ UiAction app_ui_action_from_input(
         return UI_ACTION_NONE;
 
     if (app->screen == APP_SCREEN_LOGIN) {
-        if (input->buttons_down & SCE_CTRL_UP)
-            return UI_ACTION_NAV_UP;
-
-        if (input->buttons_down & SCE_CTRL_DOWN)
-            return UI_ACTION_NAV_DOWN;
+        /*
+         * Only Spotify Login is visible/selectable.
+         * D-pad keeps focus on it.
+         * X activates login.
+         * O works as Back with NO on-screen Back text/symbol.
+         */
+        if (input->buttons_down &
+            (SCE_CTRL_UP |
+             SCE_CTRL_DOWN |
+             SCE_CTRL_LEFT |
+             SCE_CTRL_RIGHT)) {
+            app->login_focus = 0;
+            return UI_ACTION_NONE;
+        }
 
         if (input->buttons_down & SCE_CTRL_CIRCLE)
             return UI_ACTION_BACK;
 
-        if (input->buttons_down & SCE_CTRL_CROSS) {
-            if (app->login_focus == 0)
-                return UI_ACTION_LOGIN;
-            return UI_ACTION_BACK;
-        }
+        if (input->buttons_down & SCE_CTRL_CROSS)
+            return UI_ACTION_LOGIN;
 
-        if (input->touch_active) {
-            if (input->touch_x >= 290 &&
-                input->touch_x <= 670 &&
-                input->touch_y >= 250 &&
-                input->touch_y <= 365)
-                return UI_ACTION_LOGIN;
-
-            if (input->touch_x >= 390 &&
-                input->touch_x <= 570 &&
-                input->touch_y >= 385 &&
-                input->touch_y <= 440)
-                return UI_ACTION_BACK;
-        }
+        if (input->touch_active &&
+            input->touch_x >= 290 &&
+            input->touch_x <= 670 &&
+            input->touch_y >= 215 &&
+            input->touch_y <= 310)
+            return UI_ACTION_LOGIN;
 
         return UI_ACTION_NONE;
     }

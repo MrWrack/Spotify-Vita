@@ -8,14 +8,15 @@
 #define SPOTIFY_CLIENT_ID "PUT_YOUR_SPOTIFY_CLIENT_ID_HERE"
 
 /*
- * Spotify currently requires HTTPS redirects, except explicit loopback IP
- * literals. Register this exact URI in the Spotify Developer Dashboard.
+ * v19: use the Vita system app URI as the OAuth redirect.
+ * Register this exact Redirect URI in Spotify Developer Dashboard:
  *
- * The port may be changed, but the auth request and registered redirect must
- * match Spotify's redirect rules.
+ *   psgm:play?titleid=SPVT00001
+ *
+ * Spotify returns code/state by appending query parameters to this URI.
+ * The Vita app reads the launch URI with sceAppMgrGetAppParam().
  */
-#define SPOTIFY_REDIRECT_URI "http://127.0.0.1:43891/callback"
-#define SPOTIFY_CALLBACK_PORT 43891
+#define SPOTIFY_REDIRECT_URI "psgm:play?titleid=SPVT00001"
 
 #define SPOTIFY_SCOPES \
     "user-read-playback-state " \
