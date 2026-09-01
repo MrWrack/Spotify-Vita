@@ -5,6 +5,7 @@
 #include "spotify_state_worker.h"
 #include "spotify_token_store.h"
 #include "vita_browser.h"
+#include "vita_network.h"
 
 #include <psp2/kernel/threadmgr.h>
 
@@ -72,6 +73,11 @@ int app_controller_init(
     app->selected_nav = 0;
     app->login_focus = 0;
 
+    app->network_state = 0;
+    app->network_connected =
+        vita_network_is_connected();
+    vita_network_get_state(&app->network_state);
+
     app->initialized = 1;
 
     /*
@@ -93,6 +99,19 @@ int app_controller_begin_login(
 
     if (app->login_started)
         return 0;
+
+    app->network_state = 0;
+    app->network_connected =
+        vita_network_is_connected();
+    vita_network_get_state(&app->network_state);
+
+    if (!app->network_connected) {
+        app->last_error = -2001;
+        app->last_http_status = 0;
+        app->last_error_stage = APP_ERROR_STAGE_NETWORK;
+        app->screen = APP_SCREEN_ERROR;
+        return app->last_error;
+    }
 
     /*
      * Clear stale callback state from a previous failed attempt.
@@ -197,6 +216,11 @@ void app_controller_update(
 {
     if (!app || !app->initialized)
         return;
+
+    app->network_state = 0;
+    app->network_connected =
+        vita_network_is_connected();
+    vita_network_get_state(&app->network_state);
 
     SpotifyCallbackServerState callback_state =
         spotify_callback_server_state(

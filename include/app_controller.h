@@ -22,6 +22,7 @@ typedef enum {
     APP_ERROR_STAGE_LOGIN,
     APP_ERROR_STAGE_CALLBACK,
     APP_ERROR_STAGE_BROWSER,
+    APP_ERROR_STAGE_NETWORK,
     APP_ERROR_STAGE_SPOTIFY_HTTP
 } AppErrorStage;
 
@@ -42,6 +43,9 @@ typedef struct {
     int last_error;
     AppErrorStage last_error_stage;
     int last_http_status;
+
+    int network_connected;
+    int network_state;
 } AppController;
 
 int app_controller_init(

@@ -167,6 +167,7 @@ static int callback_thread(SceSize args, void *arg)
     );
 
     if (server->listen_socket < 0) {
+        server->last_operation = SPOTIFY_CALLBACK_OP_SOCKET;
         server->last_error = server->listen_socket;
         server->state = SPOTIFY_CALLBACK_ERROR;
         server->running = 0;
@@ -174,13 +175,22 @@ static int callback_thread(SceSize args, void *arg)
     }
 
     int reuse = 1;
-    sceNetSetsockopt(
+    int sockopt_rc = sceNetSetsockopt(
         server->listen_socket,
         SCE_NET_SOL_SOCKET,
         SCE_NET_SO_REUSEADDR,
         &reuse,
         sizeof(reuse)
     );
+
+    if (sockopt_rc < 0) {
+        /*
+         * SO_REUSEADDR is optional for this one-shot callback server.
+         * Remember the operation for diagnostics, but continue to bind.
+         */
+        server->last_operation = SPOTIFY_CALLBACK_OP_SETSOCKOPT;
+        server->last_error = sockopt_rc;
+    }
 
     int rc = sceNetBind(
         server->listen_socket,
@@ -189,6 +199,7 @@ static int callback_thread(SceSize args, void *arg)
     );
 
     if (rc < 0) {
+        server->last_operation = SPOTIFY_CALLBACK_OP_BIND;
         server->last_error = rc;
         server->state = SPOTIFY_CALLBACK_ERROR;
         goto done;
@@ -196,11 +207,14 @@ static int callback_thread(SceSize args, void *arg)
 
     rc = sceNetListen(server->listen_socket, 1);
     if (rc < 0) {
+        server->last_operation = SPOTIFY_CALLBACK_OP_LISTEN;
         server->last_error = rc;
         server->state = SPOTIFY_CALLBACK_ERROR;
         goto done;
     }
 
+    server->last_operation = SPOTIFY_CALLBACK_OP_NONE;
+    server->last_error = 0;
     server->state = SPOTIFY_CALLBACK_LISTENING;
 
     while (server->running) {
@@ -218,6 +232,7 @@ static int callback_thread(SceSize args, void *arg)
             if (!server->running)
                 break;
 
+            server->last_operation = SPOTIFY_CALLBACK_OP_ACCEPT;
             server->last_error = server->client_socket;
             server->state = SPOTIFY_CALLBACK_ERROR;
             break;
@@ -267,8 +282,14 @@ static int callback_thread(SceSize args, void *arg)
              * Keep listening after malformed/unrelated requests. The user's
              * actual Spotify redirect may still arrive.
              */
+            server->last_operation = SPOTIFY_CALLBACK_OP_PARSE;
             server->last_error = rc;
         } else {
+            if (received < 0) {
+                server->last_operation = SPOTIFY_CALLBACK_OP_RECV;
+                server->last_error = received;
+            }
+
             sceNetSocketClose(server->client_socket);
             server->client_socket = -1;
         }
@@ -305,6 +326,7 @@ int spotify_callback_server_init(
     server->client_socket = -1;
     server->thread_id = -1;
     server->state = SPOTIFY_CALLBACK_STOPPED;
+    server->last_operation = SPOTIFY_CALLBACK_OP_NONE;
 
     return 0;
 }
@@ -320,6 +342,7 @@ int spotify_callback_server_start(
         return 0;
 
     server->last_error = 0;
+    server->last_operation = SPOTIFY_CALLBACK_OP_NONE;
     server->running = 1;
     server->state = SPOTIFY_CALLBACK_STOPPED;
 
@@ -335,6 +358,7 @@ int spotify_callback_server_start(
 
     if (server->thread_id < 0) {
         server->running = 0;
+        server->last_operation = SPOTIFY_CALLBACK_OP_THREAD_CREATE;
         server->last_error = server->thread_id;
         server->state = SPOTIFY_CALLBACK_ERROR;
         return server->thread_id;
@@ -352,6 +376,7 @@ int spotify_callback_server_start(
         sceKernelDeleteThread(server->thread_id);
         server->thread_id = -1;
         server->running = 0;
+        server->last_operation = SPOTIFY_CALLBACK_OP_THREAD_START;
         server->last_error = rc;
         server->state = SPOTIFY_CALLBACK_ERROR;
         return rc;
@@ -401,8 +426,10 @@ void spotify_callback_server_stop(
     if (server->state != SPOTIFY_CALLBACK_RECEIVED)
         server->state = SPOTIFY_CALLBACK_STOPPED;
 
-    if (server->state == SPOTIFY_CALLBACK_STOPPED)
+    if (server->state == SPOTIFY_CALLBACK_STOPPED) {
+        server->last_operation = SPOTIFY_CALLBACK_OP_NONE;
         server->last_error = 0;
+    }
 }
 
 void spotify_callback_server_shutdown(

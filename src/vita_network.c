@@ -103,3 +103,33 @@ void vita_network_shutdown(void)
         g_net_module_loaded_here = 0;
     }
 }
+
+
+int vita_network_get_state(int *state)
+{
+    if (!state)
+        return -1;
+
+    *state = 0;
+
+    if (!g_net_initialized || !g_netctl_initialized)
+        return -2;
+
+    return sceNetCtlInetGetState(state);
+}
+
+int vita_network_is_connected(void)
+{
+    int state = 0;
+    int rc = vita_network_get_state(&state);
+
+    if (rc < 0)
+        return 0;
+
+    /*
+     * Vita NetCtl uses 3 for the fully connected internet state.
+     * Keep the comparison numeric so this code stays compatible with
+     * VitaSDK header revisions that used different enum spellings.
+     */
+    return state == 3;
+}

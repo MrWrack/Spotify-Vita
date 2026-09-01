@@ -96,12 +96,16 @@ static void header(
     text(r, 28, 40, 1.25f, COLOR_GREEN, "SPOTIFY VITA");
     text(r, 390, 39, 0.90f, COLOR_WHITE, title);
 
-    if (app->auth.authenticated) {
-        rect(834, 23, 9, 9, COLOR_GREEN);
-        text(r, 850, 36, 0.70f, COLOR_DIM, "ONLINE");
+    /*
+     * Header status reflects the Vita's real NetCtl connection now,
+     * not Spotify authentication state.
+     */
+    if (app->network_connected) {
+        rect(824, 23, 9, 9, COLOR_GREEN);
+        text(r, 840, 36, 0.66f, COLOR_GREEN, "NET ONLINE");
     } else {
-        rect(834, 23, 9, 9, COLOR_DIM);
-        text(r, 850, 36, 0.70f, COLOR_DIM, "OFFLINE");
+        rect(824, 23, 9, 9, COLOR_RED);
+        text(r, 840, 36, 0.66f, COLOR_RED, "NET OFFLINE");
     }
 }
 
@@ -376,6 +380,9 @@ static void error_screen(
         case APP_ERROR_STAGE_BROWSER:
             stage = "VITA BROWSER";
             break;
+        case APP_ERROR_STAGE_NETWORK:
+            stage = "VITA NETWORK";
+            break;
         case APP_ERROR_STAGE_SPOTIFY_HTTP:
             stage = "SPOTIFY HTTP";
             break;
@@ -389,7 +396,29 @@ static void error_screen(
     snprintf(buf, sizeof(buf), "STEG: %s", stage);
     text(r, 337, 225, 0.82f, COLOR_GREEN, buf);
 
-    if (app->last_error_stage == APP_ERROR_STAGE_SPOTIFY_HTTP) {
+    if (app->last_error_stage == APP_ERROR_STAGE_CALLBACK) {
+        const char *op = "UNKNOWN";
+
+        switch (app->callback.last_operation) {
+            case SPOTIFY_CALLBACK_OP_THREAD_CREATE: op = "THREAD CREATE"; break;
+            case SPOTIFY_CALLBACK_OP_THREAD_START:  op = "THREAD START";  break;
+            case SPOTIFY_CALLBACK_OP_SOCKET:        op = "SOCKET";        break;
+            case SPOTIFY_CALLBACK_OP_SETSOCKOPT:    op = "SETSOCKOPT";    break;
+            case SPOTIFY_CALLBACK_OP_BIND:          op = "BIND";          break;
+            case SPOTIFY_CALLBACK_OP_LISTEN:        op = "LISTEN";        break;
+            case SPOTIFY_CALLBACK_OP_ACCEPT:        op = "ACCEPT";        break;
+            case SPOTIFY_CALLBACK_OP_RECV:          op = "RECV";          break;
+            case SPOTIFY_CALLBACK_OP_PARSE:         op = "PARSE";         break;
+            case SPOTIFY_CALLBACK_OP_NONE:
+            default:                                op = "UNKNOWN";       break;
+        }
+
+        snprintf(buf, sizeof(buf), "DEL: %s   Error: %d",
+                 op, app->last_error);
+    } else if (app->last_error_stage == APP_ERROR_STAGE_NETWORK) {
+        snprintf(buf, sizeof(buf), "NetCtl state: %d   Anslut Wi-Fi",
+                 app->network_state);
+    } else if (app->last_error_stage == APP_ERROR_STAGE_SPOTIFY_HTTP) {
         snprintf(buf, sizeof(buf), "Error: %d   HTTP: %d",
                  app->last_error, app->last_http_status);
     } else {
@@ -397,7 +426,7 @@ static void error_screen(
                  app->last_error);
     }
 
-    text(r, 300, 260, 0.76f, COLOR_WHITE, buf);
+    text(r, 260, 260, 0.72f, COLOR_WHITE, buf);
 
     text(r, 302, 315, 0.72f, COLOR_DIM,
          "O eller X: BACK -> LOGIN");

@@ -10,6 +10,19 @@ typedef enum {
     SPOTIFY_CALLBACK_ERROR
 } SpotifyCallbackServerState;
 
+typedef enum {
+    SPOTIFY_CALLBACK_OP_NONE = 0,
+    SPOTIFY_CALLBACK_OP_THREAD_CREATE,
+    SPOTIFY_CALLBACK_OP_THREAD_START,
+    SPOTIFY_CALLBACK_OP_SOCKET,
+    SPOTIFY_CALLBACK_OP_SETSOCKOPT,
+    SPOTIFY_CALLBACK_OP_BIND,
+    SPOTIFY_CALLBACK_OP_LISTEN,
+    SPOTIFY_CALLBACK_OP_ACCEPT,
+    SPOTIFY_CALLBACK_OP_RECV,
+    SPOTIFY_CALLBACK_OP_PARSE
+} SpotifyCallbackOperation;
+
 typedef struct {
     SpotifyLogin *login;
 
@@ -21,6 +34,7 @@ typedef struct {
     volatile int running;
 
     SpotifyCallbackServerState state;
+    SpotifyCallbackOperation last_operation;
     int last_error;
 } SpotifyCallbackServer;
 
