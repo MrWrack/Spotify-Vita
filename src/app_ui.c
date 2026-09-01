@@ -43,7 +43,6 @@ UiAction app_ui_action_from_input(
              SCE_CTRL_DOWN |
              SCE_CTRL_LEFT |
              SCE_CTRL_RIGHT)) {
-            app->login_focus = 0;
             return UI_ACTION_NONE;
         }
 

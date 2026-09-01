@@ -224,7 +224,7 @@ static void login_screen(
 
     rect(310, 230, 340, 66, COLOR_GREEN);
     text(r, 389, 272, 1.05f, COLOR_BLACK, "LOGGA IN MED SPOTIFY");
-    text(r, 900, 525, 0.55f, COLOR_DIM, "v22");
+    text(r, 900, 525, 0.55f, COLOR_DIM, "v23");
 }
 
 static void home_screen(
