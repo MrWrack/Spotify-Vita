@@ -152,7 +152,12 @@ static int callback_thread(SceSize args, void *arg)
     address.sin_len = sizeof(address);
     address.sin_family = SCE_NET_AF_INET;
     address.sin_port = sceNetHtons((unsigned short)server->port);
-    address.sin_addr.s_addr = sceNetHtonl(SCE_NET_INADDR_LOOPBACK);
+    /*
+     * Binding specifically to 127.0.0.1 is unreliable on some Vita
+     * network-stack configurations. Listen on all local IPv4 interfaces.
+     * A redirect to 127.0.0.1 still reaches this socket.
+     */
+    address.sin_addr.s_addr = sceNetHtonl(SCE_NET_INADDR_ANY);
 
     server->listen_socket = sceNetSocket(
         "SpotifyCallback",
@@ -388,9 +393,16 @@ void spotify_callback_server_stop(
         server->thread_id = -1;
     }
 
-    if (server->state != SPOTIFY_CALLBACK_RECEIVED &&
-        server->state != SPOTIFY_CALLBACK_ERROR)
+    /*
+     * An explicit stop is also a reset. Keeping SPOTIFY_CALLBACK_ERROR here
+     * caused app_controller_update() to immediately reopen the error screen
+     * after the user pressed Back.
+     */
+    if (server->state != SPOTIFY_CALLBACK_RECEIVED)
         server->state = SPOTIFY_CALLBACK_STOPPED;
+
+    if (server->state == SPOTIFY_CALLBACK_STOPPED)
+        server->last_error = 0;
 }
 
 void spotify_callback_server_shutdown(

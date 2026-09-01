@@ -56,6 +56,10 @@ int app_controller_begin_login(
     AppController *app
 );
 
+void app_controller_return_to_login(
+    AppController *app
+);
+
 void app_controller_logout(
     AppController *app
 );

@@ -94,6 +94,16 @@ int app_controller_begin_login(
     if (app->login_started)
         return 0;
 
+    /*
+     * Clear stale callback state from a previous failed attempt.
+     */
+    spotify_callback_server_stop(&app->callback);
+    app->callback.state = SPOTIFY_CALLBACK_STOPPED;
+    app->callback.last_error = 0;
+    app->last_error = 0;
+    app->last_http_status = 0;
+    app->last_error_stage = APP_ERROR_STAGE_NONE;
+
     int rc = spotify_login_begin(
         &app->login,
         SPOTIFY_SCOPES
@@ -211,7 +221,8 @@ void app_controller_update(
         spotify_state_worker_wake();
     }
 
-    if (callback_state == SPOTIFY_CALLBACK_ERROR) {
+    if (app->login_started &&
+        callback_state == SPOTIFY_CALLBACK_ERROR) {
         app->last_error = app->callback.last_error;
         app->last_http_status = 0;
         app->last_error_stage = APP_ERROR_STAGE_CALLBACK;
@@ -242,6 +253,31 @@ void app_controller_update(
             app->last_error_stage = APP_ERROR_STAGE_SPOTIFY_HTTP;
         }
     }
+}
+
+
+void app_controller_return_to_login(
+    AppController *app
+)
+{
+    if (!app)
+        return;
+
+    /*
+     * Stop/reset the failed callback worker BEFORE changing screen.
+     * Otherwise app_controller_update() sees CALLBACK_ERROR on the next
+     * frame and immediately sends the UI back to APP_SCREEN_ERROR.
+     */
+    spotify_callback_server_stop(&app->callback);
+    app->callback.state = SPOTIFY_CALLBACK_STOPPED;
+    app->callback.last_error = 0;
+
+    app->login_started = 0;
+    app->last_error = 0;
+    app->last_http_status = 0;
+    app->last_error_stage = APP_ERROR_STAGE_NONE;
+    app->login_focus = 0;
+    app->screen = APP_SCREEN_LOGIN;
 }
 
 void app_controller_logout(

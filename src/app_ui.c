@@ -205,8 +205,7 @@ int app_ui_execute_action(
 
         case UI_ACTION_BACK:
             if (app->screen == APP_SCREEN_ERROR) {
-                app->screen = APP_SCREEN_LOGIN;
-                app->login_focus = 0;
+                app_controller_return_to_login(app);
             } else if (app->screen == APP_SCREEN_LOGIN) {
                 app->login_focus = 0;
             } else {

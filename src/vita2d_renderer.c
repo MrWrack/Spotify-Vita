@@ -400,7 +400,7 @@ static void error_screen(
     text(r, 300, 260, 0.76f, COLOR_WHITE, buf);
 
     text(r, 302, 315, 0.72f, COLOR_DIM,
-         "O eller X: tillbaka till login");
+         "O eller X: BACK -> LOGIN");
 }
 
 int vita2d_renderer_init(Vita2DRenderer *renderer)
