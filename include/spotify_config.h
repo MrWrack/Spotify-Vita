@@ -22,6 +22,10 @@
     "user-read-currently-playing " \
     "user-modify-playback-state"
 
+/* v28: change this to the PC IP shown by START-COMPANION.bat */
+#define SPOTIFY_PC_PROXY_HOST "192.168.1.100"
+#define SPOTIFY_PC_PROXY_PORT 8080
+
 #define SPOTIFY_DATA_DIR "ux0:data/spotify-vita"
 #define SPOTIFY_TOKEN_STORE_PATH SPOTIFY_DATA_DIR "/session.bin"
 

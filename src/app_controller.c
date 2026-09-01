@@ -592,7 +592,32 @@ int app_controller_search_play_selected(
     if (!track->valid || !track->uri[0])
         return -3;
 
-    int rc = spotify_playback_play_uri(track->uri);
+    char encoded_uri[256];
+    size_t w = 0;
+    static const char hex[] = "0123456789ABCDEF";
+
+    for (const unsigned char *p = (const unsigned char *)track->uri;
+         *p && w + 3 < sizeof(encoded_uri);
+         ++p) {
+        unsigned char c = *p;
+        if ((c >= 'A' && c <= 'Z') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9') ||
+            c == '-' || c == '_' || c == '.' || c == '~') {
+            encoded_uri[w++] = (char)c;
+        } else {
+            encoded_uri[w++] = '%';
+            encoded_uri[w++] = hex[(c >> 4) & 0x0F];
+            encoded_uri[w++] = hex[c & 0x0F];
+        }
+    }
+    encoded_uri[w] = '\0';
+
+    char path[320];
+    snprintf(path, sizeof(path), "/play?uri=%s", encoded_uri);
+
+    int http_status = 0;
+    int rc = spotify_proxy_simple_get(path, &http_status);
 
     if (rc == 0)
         spotify_state_worker_wake();

@@ -13,4 +13,6 @@ int spotify_search_tracks(
     int *out_http_status
 );
 
+int spotify_proxy_simple_get(const char *path, int *out_http_status);
+
 #endif
