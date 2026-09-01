@@ -4,6 +4,9 @@
 #include "now_playing.h"
 #include "spotify_auth_pkce.h"
 #include "spotify_login.h"
+#include "spotify_json.h"
+
+#define APP_SEARCH_MAX_RESULTS 8
 
 typedef enum {
     APP_SCREEN_LOGIN = 0,
@@ -44,6 +47,15 @@ typedef struct {
 
     int network_connected;
     int network_state;
+
+    char search_query[64];
+    SpotifyTrack search_results[APP_SEARCH_MAX_RESULTS];
+    int search_result_count;
+    int search_selected;
+    int search_keyboard_index;
+    int search_focus_results;
+    int search_last_error;
+    int search_last_http_status;
 } AppController;
 
 int app_controller_init(
@@ -63,6 +75,15 @@ void app_controller_return_to_login(
 );
 
 void app_controller_logout(
+    AppController *app
+);
+
+
+int app_controller_search(
+    AppController *app
+);
+
+int app_controller_search_play_selected(
     AppController *app
 );
 

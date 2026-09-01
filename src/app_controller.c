@@ -2,6 +2,8 @@
 
 #include "spotify_config.h"
 #include "spotify_http.h"
+#include "spotify_search.h"
+#include "spotify_playback.h"
 #include "spotify_state_worker.h"
 #include "spotify_token_store.h"
 #include "spotify_token_import.h"
@@ -337,6 +339,13 @@ int app_controller_init(
 
     app->selected_nav = 0;
     app->login_focus = 0;
+    app->search_query[0] = '\0';
+    app->search_result_count = 0;
+    app->search_selected = 0;
+    app->search_keyboard_index = 0;
+    app->search_focus_results = 0;
+    app->search_last_error = 0;
+    app->search_last_http_status = 0;
 
     app->network_state = 0;
     app->network_connected =
@@ -520,6 +529,77 @@ void app_controller_logout(
 
     app->screen = APP_SCREEN_LOGIN;
 }
+
+
+int app_controller_search(
+    AppController *app
+)
+{
+    if (!app || !app->initialized)
+        return -1;
+
+    if (!app->search_query[0]) {
+        app->search_last_error = -4001;
+        app->search_last_http_status = 0;
+        return -4001;
+    }
+
+    memset(
+        app->search_results,
+        0,
+        sizeof(app->search_results)
+    );
+
+    app->search_result_count = 0;
+    app->search_selected = 0;
+    app->search_last_error = 0;
+    app->search_last_http_status = 0;
+
+    int rc = spotify_search_tracks(
+        &app->auth,
+        app->search_query,
+        app->search_results,
+        APP_SEARCH_MAX_RESULTS,
+        &app->search_result_count,
+        &app->search_last_http_status
+    );
+
+    if (rc < 0) {
+        app->search_last_error = rc;
+        return rc;
+    }
+
+    if (app->search_result_count > 0)
+        app->search_focus_results = 1;
+
+    return 0;
+}
+
+int app_controller_search_play_selected(
+    AppController *app
+)
+{
+    if (!app || app->search_result_count <= 0)
+        return -1;
+
+    if (app->search_selected < 0 ||
+        app->search_selected >= app->search_result_count)
+        return -2;
+
+    SpotifyTrack *track =
+        &app->search_results[app->search_selected];
+
+    if (!track->valid || !track->uri[0])
+        return -3;
+
+    int rc = spotify_playback_play_uri(track->uri);
+
+    if (rc == 0)
+        spotify_state_worker_wake();
+
+    return rc;
+}
+
 
 void app_controller_shutdown(
     AppController *app

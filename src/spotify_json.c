@@ -417,6 +417,54 @@ int spotify_json_parse_player(
     return 0;
 }
 
+
+int spotify_json_parse_search_tracks(
+    const char *json,
+    size_t size,
+    SpotifyTrack *results,
+    int max_results,
+    int *out_count
+)
+{
+    const char *tracks = NULL;
+    size_t tracks_size = 0;
+    const char *items = NULL;
+    size_t items_size = 0;
+
+    if (!json || !results || max_results <= 0 || !out_count || size == 0)
+        return -1;
+
+    *out_count = 0;
+
+    if (get_object(json, size, "tracks", &tracks, &tracks_size) != 0)
+        return -2;
+
+    if (get_array(tracks, tracks_size, "items", &items, &items_size) != 0)
+        return -3;
+
+    for (int i = 0; i < max_results; ++i) {
+        const char *obj = NULL;
+        size_t obj_size = 0;
+
+        int rc = array_object_at(
+            items,
+            items_size,
+            i,
+            &obj,
+            &obj_size
+        );
+
+        if (rc != 0)
+            break;
+
+        if (parse_track_object(obj, obj_size, &results[*out_count]) == 0)
+            ++(*out_count);
+    }
+
+    return 0;
+}
+
+
 int spotify_json_parse_queue(
     const char *json,
     size_t size,

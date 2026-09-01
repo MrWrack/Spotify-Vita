@@ -224,7 +224,7 @@ static void login_screen(
 
     rect(310, 230, 340, 66, COLOR_GREEN);
     text(r, 389, 272, 1.05f, COLOR_BLACK, "LOGGA IN MED SPOTIFY");
-    text(r, 900, 525, 0.55f, COLOR_DIM, "v26");
+    text(r, 900, 525, 0.55f, COLOR_DIM, "v27");
 }
 
 static void home_screen(
@@ -271,6 +271,112 @@ static void home_screen(
 
     compact_player(r, app);
 }
+
+
+static void search_screen(
+    const Vita2DRenderer *r,
+    const AppController *app
+)
+{
+    static const char keys[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ";
+    const int key_count = 37;
+    const int cols = 8;
+
+    header(r, app, "SEARCH");
+
+    text(r, 28, 92, 0.68f, COLOR_DIM, "SOKTEXT");
+    rect(28, 104, 400, 46, COLOR_PANEL);
+    frame(28, 104, 400, 46, 2, COLOR_GREEN_2);
+
+    if (app->search_query[0]) {
+        clipped_text(
+            r, 42, 135, 0.92f, COLOR_WHITE,
+            app->search_query, 34
+        );
+    } else {
+        text(r, 42, 135, 0.78f, COLOR_DIM,
+             "Skriv artist eller lat...");
+    }
+
+    text(r, 28, 176, 0.66f, COLOR_DIM, "TANGENTBORD");
+
+    for (int i = 0; i < key_count; ++i) {
+        int col = i % cols;
+        int row = i / cols;
+
+        float x = 28.0f + (float)col * 48.0f;
+        float y = 190.0f + (float)row * 43.0f;
+
+        int selected =
+            !app->search_focus_results &&
+            app->search_keyboard_index == i;
+
+        rect(
+            x, y, 40, 34,
+            selected ? COLOR_GREEN : COLOR_PANEL_2
+        );
+
+        char label[2] = { keys[i], '\0' };
+        if (keys[i] == ' ')
+            text(r, (int)x + 9, (int)y + 23, 0.58f,
+                 selected ? COLOR_BLACK : COLOR_WHITE, "_");
+        else
+            text(r, (int)x + 11, (int)y + 23, 0.70f,
+                 selected ? COLOR_BLACK : COLOR_WHITE, label);
+    }
+
+    rect(460, 82, 2, 350, COLOR_PANEL_2);
+    text(r, 488, 104, 0.72f, COLOR_DIM, "SPOTIFY RESULTAT");
+
+    if (app->search_last_error < 0) {
+        char err[96];
+        snprintf(
+            err, sizeof(err),
+            "Sokfel: %d  HTTP: %d",
+            app->search_last_error,
+            app->search_last_http_status
+        );
+        text(r, 488, 132, 0.66f, COLOR_RED, err);
+    } else if (app->search_result_count == 0) {
+        text(r, 488, 145, 0.75f, COLOR_DIM,
+             "Tryck TRIANGLE for att soka.");
+    }
+
+    for (int i = 0;
+         i < app->search_result_count && i < 6;
+         ++i) {
+        const SpotifyTrack *track =
+            &app->search_results[i];
+
+        int selected =
+            app->search_focus_results &&
+            app->search_selected == i;
+
+        int y = 132 + i * 49;
+
+        if (selected) {
+            rect(480, (float)y - 18, 448, 43, COLOR_PANEL_2);
+            rect(480, (float)y - 18, 4, 43, COLOR_GREEN);
+        }
+
+        clipped_text(
+            r, 496, y, 0.78f,
+            selected ? COLOR_GREEN : COLOR_WHITE,
+            track->title, 31
+        );
+        clipped_text(
+            r, 496, y + 19, 0.58f, COLOR_DIM,
+            track->artist, 36
+        );
+    }
+
+    text(r, 28, 438, 0.60f, COLOR_DIM,
+         "X: bokstav/spela   []: radera   TRIANGLE: sok   L/R: tangentbord/resultat   O: tillbaka");
+
+    compact_player(r, app);
+}
+
 
 static void content_screen(
     const Vita2DRenderer *r,
@@ -505,9 +611,7 @@ void vita2d_renderer_draw(
             break;
 
         case APP_SCREEN_SEARCH:
-            content_screen(renderer, app, "SEARCH", "Search",
-                           "Sok efter musik fran Spotify.",
-                           "Sokfunktionen kopplas till Spotify API i nasta steg.");
+            search_screen(renderer, app);
             break;
 
         case APP_SCREEN_LIBRARY:

@@ -45,6 +45,15 @@ int spotify_json_parse_queue(
     SpotifyQueue *out
 );
 
+
+int spotify_json_parse_search_tracks(
+    const char *json,
+    size_t size,
+    SpotifyTrack *results,
+    int max_results,
+    int *out_count
+);
+
 int spotify_json_parse_token(
     const char *json,
     size_t size,

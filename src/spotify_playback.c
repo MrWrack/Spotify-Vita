@@ -25,6 +25,42 @@ int spotify_playback_play(void)
     return command(SPOTIFY_HTTP_PUT, "/v1/me/player/play");
 }
 
+
+int spotify_playback_play_uri(const char *uri)
+{
+    if (!uri || !uri[0])
+        return -1;
+
+    char body[384];
+    int n = snprintf(
+        body,
+        sizeof(body),
+        "{\"uris\":[\"%s\"]}",
+        uri
+    );
+
+    if (n < 0 || (size_t)n >= sizeof(body))
+        return -2;
+
+    SpotifyHttpResponse response;
+    int rc = spotify_http_request_api(
+        SPOTIFY_HTTP_PUT,
+        "/v1/me/player/play",
+        body,
+        "application/json",
+        &response
+    );
+
+    if (rc < 0)
+        return rc;
+
+    int status = response.status_code;
+    spotify_http_response_free(&response);
+
+    return status == 204 ? 0 : -status;
+}
+
+
 int spotify_playback_pause(void)
 {
     return command(SPOTIFY_HTTP_PUT, "/v1/me/player/pause");
