@@ -4,6 +4,7 @@
 #include "spotify_http.h"
 #include "spotify_state_worker.h"
 #include "spotify_token_store.h"
+#include "spotify_token_import.h"
 #include "vita_browser.h"
 #include "vita_network.h"
 
@@ -297,6 +298,15 @@ int app_controller_init(
         SPOTIFY_TOKEN_STORE_PATH,
         &app->auth
     );
+    /* v26: import tokens created by the PC login helper. */
+    if (spotify_token_import_try(&app->auth) > 0) {
+        spotify_token_store_save(
+            SPOTIFY_TOKEN_STORE_PATH,
+            &app->auth
+        );
+        stored = 0;
+        app->session_saved = 1;
+    }
 
     spotify_login_init(
         &app->login,
